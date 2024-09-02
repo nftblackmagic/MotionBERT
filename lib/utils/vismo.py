@@ -28,6 +28,7 @@ def render_and_save(motion_input, save_path, keep_imgs=False, fps=25, color="#F9
         else:
             motion_full = motion
         motion_full[:,:2,:] = pixel2world_vis_motion(motion_full[:,:2,:])
+        print("motion_full: ", motion_full.shape)
         motion2video(motion_full, save_path=save_path, colors=colors, fps=fps)
     elif motion.shape[0]==6890:
         # motion_world = pixel2world_vis_motion(motion, dim=3)

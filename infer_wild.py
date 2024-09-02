@@ -50,6 +50,7 @@ testloader_params = {
 
 vid = imageio.get_reader(opts.vid_path,  'ffmpeg')
 fps_in = vid.get_meta_data()['fps']
+print("fps_in: ", fps_in)
 vid_size = vid.get_meta_data()['size']
 os.makedirs(opts.out_path, exist_ok=True)
 
@@ -89,6 +90,7 @@ with torch.no_grad():
 
 results_all = np.hstack(results_all)
 results_all = np.concatenate(results_all)
+print("results_all: ", len(results_all))
 render_and_save(results_all, '%s/X3D.mp4' % (opts.out_path), keep_imgs=False, fps=fps_in)
 if opts.pixel:
     # Convert to pixel coordinates

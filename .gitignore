@@ -138,3 +138,36 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+*.mp3
+*.wav
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.mkv
+*.webm
+*.gif
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.webp
+*.svg
+*.ico
+*.cur
+*.ani
+*.npy
+*.npz
+*.pkl
+*.pt
+*.pth
+*.pkl
+*.pth
+*.pkl
+*.pth
+
+frames*
+2d*
