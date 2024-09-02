@@ -28,14 +28,29 @@ def render_and_save(motion_input, save_path, keep_imgs=False, fps=25, color="#F9
         else:
             motion_full = motion
         motion_full[:,:2,:] = pixel2world_vis_motion(motion_full[:,:2,:])
-        print("motion_full: ", motion_full.shape)
+        print("motion2video")
         motion2video(motion_full, save_path=save_path, colors=colors, fps=fps)
     elif motion.shape[0]==6890:
         # motion_world = pixel2world_vis_motion(motion, dim=3)
+        print("motion2video_mesh")
         motion2video_mesh(motion, save_path=save_path, keep_imgs=keep_imgs, fps=fps, draw_face=draw_face)
     else:
         motion_world = pixel2world_vis_motion(motion, dim=3)
+        print("motion2video_3d")
         motion2video_3d(motion_world, save_path=save_path, keep_imgs=keep_imgs, fps=fps)
+
+def render_and_save_3d(motion_input1, motion_input2, save_path, fps=25, disparities=None):
+    ensure_dir(os.path.dirname(save_path))
+    motion1 = copy.deepcopy(motion_input1)
+    motion2 = copy.deepcopy(motion_input2)
+    if motion1.shape[-1]==2 or motion1.shape[-1]==3:
+        motion1 = np.transpose(motion1, (1,2,0))   #(T,17,D) -> (17,D,T) 
+    if motion2.shape[-1]==2 or motion2.shape[-1]==3:
+        motion2 = np.transpose(motion2, (1,2,0))   #(T,17,D) -> (17,D,T) 
+    motion_world1 = pixel2world_vis_motion(motion1, dim=3)
+    motion_world2 = pixel2world_vis_motion(motion2, dim=3)
+    print("motion2video_3d")
+    motion2video_3d_2(motion_world1, motion_world2, save_path=save_path, fps=fps, disparities=disparities)
         
 def pixel2world_vis(pose):
 #     pose: (17,2)
@@ -285,6 +300,119 @@ def motion2video_3d(motion, save_path, fps=25, keep_imgs = False):
         plt.close()
     videowriter.close()
 
+def motion2video_3d_2(motion, motion2, save_path, fps=25, disparities=None):
+#     motion: (17,3,N)
+    videowriter = imageio.get_writer(save_path, fps=fps)
+    vlen = motion.shape[-1]
+    save_name = save_path.split('.')[0]
+    frames = []
+    joint_pairs = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], [5, 6], [0, 7], [7, 8], [8, 9], [8, 11], [8, 14], [9, 10], [11, 12], [12, 13], [14, 15], [15, 16]]
+    joint_pairs_left = [[8, 11], [11, 12], [12, 13], [0, 4], [4, 5], [5, 6]]
+    joint_pairs_right = [[8, 14], [14, 15], [15, 16], [0, 1], [1, 2], [2, 3]]
+    
+    color_mid = "#00457E"
+    color_left = "#02315E"
+    color_right = "#2F70AF"
+    color_mid2 = "#8B0000"
+    color_left2 = "#B22222"
+    color_right2 = "#DC143C"
+
+    # Set up the figure with four subplots
+    fig = plt.figure(figsize=(20, 10))
+    ax3d = fig.add_subplot(121, projection='3d')
+    ax_plot = fig.add_subplot(122)
+    # ax_plot_movement_amplitude = fig.add_subplot(223)
+    # ax_plot_vertical_velocity = fig.add_subplot(224)
+
+    # Set up the similarity plot
+    if disparities is not None:
+        padding = int(vlen * 0.05)  # 5% padding on each side
+        ax_plot.set_xlim(-padding, vlen + padding)
+        ax_plot.set_ylim(0, max(disparities) * 1.1)
+        ax_plot.set_xlabel('Frame')
+        ax_plot.set_ylabel('Pose Similarity')
+        line, = ax_plot.plot([], [], lw=2)
+        plotted_data = []
+    
+    # if movement_amplitude1 is not None and movement_amplitude2 is not None:
+    #     ax_plot_movement_amplitude.set_xlim(-padding, vlen + padding)
+    #     ax_plot_movement_amplitude.set_ylim(0, max(max(movement_amplitude1), max(movement_amplitude2)) * 1.1)
+    #     ax_plot_movement_amplitude.set_xlabel('Frame')
+    #     ax_plot_movement_amplitude.set_ylabel('Movement Amplitude')
+    #     line_movement_amplitude1, = ax_plot_movement_amplitude.plot([], [], lw=2, color='blue', label='Motion 1')
+    #     line_movement_amplitude2, = ax_plot_movement_amplitude.plot([], [], lw=2, color='red', label='Motion 2')
+    #     ax_plot_movement_amplitude.legend()
+    #     plotted_data_movement_amplitude1 = []
+    #     plotted_data_movement_amplitude2 = []
+        
+    # if vertical_velocity1 is not None and vertical_velocity2 is not None:
+    #     ax_plot_vertical_velocity.set_xlim(-padding, vlen + padding)
+    #     ax_plot_vertical_velocity.set_ylim(0, max(max(vertical_velocity1), max(vertical_velocity2)) * 1.1)
+    #     ax_plot_vertical_velocity.set_xlabel('Frame')
+    #     ax_plot_vertical_velocity.set_ylabel('Vertical Velocity')
+    #     line_vertical_velocity1, = ax_plot_vertical_velocity.plot([], [], lw=2, color='blue', label='Motion 1')
+    #     line_vertical_velocity2, = ax_plot_vertical_velocity.plot([], [], lw=2, color='red', label='Motion 2')
+    #     ax_plot_vertical_velocity.legend()
+    #     plotted_data_vertical_velocity1 = []
+    #     plotted_data_vertical_velocity2 = []
+        
+        
+    for f in tqdm(range(vlen)):
+        j3d = motion[:,:,f]
+        j3d2 = motion2[:,:,f]
+        
+        # Clear previous 3D plot
+        ax3d.clear()
+        ax3d.set_xlim(-512, 0)
+        ax3d.set_ylim(-256, 256)
+        ax3d.set_zlim(-512, 0)
+        ax3d.view_init(elev=12., azim=80)
+        ax3d.tick_params(left=False, right=False, labelleft=False,
+                         labelbottom=False, bottom=False)
+
+        # Plot 3D poses
+        for i in range(len(joint_pairs)):
+            limb = joint_pairs[i]
+            xs, ys, zs = [np.array([j3d[limb[0], j], j3d[limb[1], j]]) for j in range(3)]
+            xs2, ys2, zs2 = [np.array([j3d2[limb[0], j], j3d2[limb[1], j]]) for j in range(3)]
+            if joint_pairs[i] in joint_pairs_left:
+                ax3d.plot(-xs, -zs, -ys, color=color_left, lw=3, marker='o', markerfacecolor='w', markersize=3, markeredgewidth=2) # axis transformation for visualization
+                ax3d.plot(-xs2, -zs2, -ys2, color=color_left2, lw=3, marker='o', markerfacecolor='w', markersize=3, markeredgewidth=2) # axis transformation for visualization
+            elif joint_pairs[i] in joint_pairs_right:
+                ax3d.plot(-xs, -zs, -ys, color=color_right, lw=3, marker='o', markerfacecolor='w', markersize=3, markeredgewidth=2) # axis transformation for visualization
+                ax3d.plot(-xs2, -zs2, -ys2, color=color_right2, lw=3, marker='o', markerfacecolor='w', markersize=3, markeredgewidth=2) # axis transformation for visualization
+            else:
+                ax3d.plot(-xs, -zs, -ys, color=color_mid, lw=3, marker='o', markerfacecolor='w', markersize=3, markeredgewidth=2) # axis transformation for visualization
+                ax3d.plot(-xs2, -zs2, -ys2, color=color_mid2, lw=3, marker='o', markerfacecolor='w', markersize=3, markeredgewidth=2) # axis transformation for visualization
+
+        # Update similarity plot
+        if disparities is not None:
+            plotted_data.append(disparities[f])
+            line.set_data(range(f+1), plotted_data)
+
+
+        # # Update movement amplitude plot
+        # if movement_amplitude1 is not None and movement_amplitude2 is not None:
+        #     if f < len(movement_amplitude1) and f < len(movement_amplitude2) and movement_amplitude1[f] is not None and movement_amplitude2[f] is not None:
+        #         plotted_data_movement_amplitude1.append(movement_amplitude1[f])
+        #         plotted_data_movement_amplitude2.append(movement_amplitude2[f])
+        #         line_movement_amplitude1.set_data(range(f+1), plotted_data_movement_amplitude1)
+        #         line_movement_amplitude2.set_data(range(f+1), plotted_data_movement_amplitude2)
+
+        # # Update vertical velocity plot
+        # if vertical_velocity1 is not None and vertical_velocity2 is not None:
+        #     if f < len(vertical_velocity1) and f < len(vertical_velocity2) and vertical_velocity1[f] is not None and vertical_velocity2[f] is not None:
+        #         plotted_data_vertical_velocity1.append(vertical_velocity1[f])
+        #         plotted_data_vertical_velocity2.append(vertical_velocity2[f])
+        #         line_vertical_velocity1.set_data(range(f+1), plotted_data_vertical_velocity1)
+        #         line_vertical_velocity2.set_data(range(f+1), plotted_data_vertical_velocity2)
+        # # Adjust layout and get the frame
+        frame_vis = get_img_from_fig(fig)
+        videowriter.append_data(frame_vis)
+
+    videowriter.close()
+    plt.close(fig)
+    
 def motion2video_mesh(motion, save_path, fps=25, keep_imgs = False, draw_face=True):
     videowriter = imageio.get_writer(save_path, fps=fps)
     vlen = motion.shape[-1]

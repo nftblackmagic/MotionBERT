@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument('--pixel', action='store_true', help='align with pixle coordinates')
     parser.add_argument('--focus', type=int, default=None, help='target person id')
     parser.add_argument('--clip_len', type=int, default=243, help='clip length for network input')
+    parser.add_argument('--save_video', action='store_true', help='save video')
     opts = parser.parse_args()
     return opts
 
@@ -91,7 +92,8 @@ with torch.no_grad():
 results_all = np.hstack(results_all)
 results_all = np.concatenate(results_all)
 print("results_all: ", len(results_all))
-render_and_save(results_all, '%s/X3D.mp4' % (opts.out_path), keep_imgs=False, fps=fps_in)
+if(opts.save_video):
+    render_and_save(results_all, '%s/X3D.mp4' % (opts.out_path), keep_imgs=False, fps=fps_in)
 if opts.pixel:
     # Convert to pixel coordinates
     results_all = results_all * (min(vid_size) / 2.0)
